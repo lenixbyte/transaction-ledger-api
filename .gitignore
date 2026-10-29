@@ -1,0 +1,10 @@
+node_modules/
+.env
+mail/
+tools/
+.data/
+.deploy/
+supabase-selfhost/
+.supabase-src/
+.venv/
+.pytest_cache/
