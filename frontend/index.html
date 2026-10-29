@@ -3,136 +3,359 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Transaction Ledger</title>
+<title>Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#6b7280; --line:#e5e7eb; --accent:#2563eb; --ok:#15803d; --bad:#b91c1c; }
+  /* Ledger-pad palette: green ruled paper, blue-black ink, red ink for debits. */
+  :root {
+    --paper: #f2f5ef;
+    --sheet: #fbfcf9;
+    --rule: #c5d6c0;
+    --band: #eaf1e6;
+    --ink: #1e2b45;
+    --muted: #5d6b63;
+    --red: #b42318;
+    --red-soft: #f6dcd8;
+    --field: #ffffff;
+    --focus: #2f6fb3;
+    --fresh: #fff3b8;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121814;
+      --sheet: #171f1a;
+      --rule: #2d3d33;
+      --band: #1b251f;
+      --ink: #e3ebe4;
+      --muted: #93a399;
+      --red: #f4796e;
+      --red-soft: #3a1f1c;
+      --field: #1d2620;
+      --focus: #7fb2ea;
+      --fresh: #4a4220;
+      color-scheme: dark;
+    }
+  }
+
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin:0; font:15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
-  header { padding:14px 20px; background:var(--card); border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
-  header h1 { font-size:18px; margin:0; }
-  header nav { display:flex; gap:14px; align-items:center; font-size:14px; }
-  header a { color:var(--accent); text-decoration:none; }
-  main { max-width:1000px; margin:0 auto; padding:16px; display:grid; gap:16px; grid-template-columns:minmax(0, 1fr); }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; min-width:0; }
-  .card h2 { font-size:15px; margin:0 0 12px; }
-  form { display:grid; gap:8px; }
-  input, select, button { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:7px; background:#fff; min-width:0; }
-  button { background:var(--accent); color:#fff; border:none; cursor:pointer; }
-  button.secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
-  button.link { background:none; color:var(--accent); padding:0; border:none; }
-  button:disabled { opacity:.5; cursor:default; }
-  .muted { color:var(--muted); font-size:13px; }
-  code { word-break:break-all; font-size:13px; }
-  .balance { font-size:30px; font-weight:600; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .row > * { flex:1; min-width:110px; }
-  .grid2 { display:grid; gap:16px; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); }
-  @media (max-width: 760px) { .grid2 { grid-template-columns:minmax(0, 1fr); } }
-  .tabs { display:flex; gap:8px; margin-bottom:12px; }
-  .tabs button { flex:1; }
-  .auth { max-width:420px; width:100%; margin:24px auto 0; }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
-  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-  .credit { color:var(--ok); } .debit { color:var(--bad); }
-  .scroll { overflow-x:auto; }
-  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); padding:10px 14px; border-radius:8px; color:#fff; display:none; max-width:90vw; z-index:9; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 15px/1.5 "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .num, .figure { font-variant-numeric: tabular-nums lining-nums; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  /* ---------- header ---------- */
+  .top {
+    max-width: 1180px; margin: 0 auto; padding: 18px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  .mark { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+  .mark::before { content: ""; width: 4px; height: 22px; border-left: 2px solid var(--red); border-right: 2px solid var(--red); }
+  .top nav { display: flex; align-items: center; gap: 18px; font-size: 14px; }
+  .top nav a { text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+  .top nav a:hover { text-decoration-color: currentColor; }
+  .who { color: var(--muted); }
+
+  /* ---------- controls ---------- */
+  label { display: grid; gap: 4px; font-size: 13px; font-weight: 500; }
+  label .hint { font-weight: 400; color: var(--muted); }
+  .lbl { display: flex; gap: 6px; align-items: baseline; }
+  input, select {
+    font: inherit; color: var(--ink); background: var(--field);
+    border: 1px solid var(--rule); border-radius: 6px; padding: 9px 11px; width: 100%; min-width: 0;
+  }
+  input:focus-visible, select:focus-visible { outline-offset: 0; border-color: var(--focus); }
+  button { font: inherit; cursor: pointer; }
+  .btn {
+    border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
+    border-radius: 6px; padding: 10px 16px; font-weight: 600;
+  }
+  .btn:hover { filter: brightness(1.15); }
+  .btn.debit { background: var(--red); border-color: var(--red); color: #fff; }
+  .btn.quiet { background: transparent; color: var(--ink); border-color: var(--rule); font-weight: 500; }
+  .btn:disabled { opacity: .45; cursor: default; filter: none; }
+  .textbtn { border: 0; background: none; padding: 0; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--rule); font-size: 13px; }
+  .textbtn:hover { text-decoration-color: currentColor; }
+
+  /* Segmented switch built from radio buttons. */
+  .switch { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--rule); border-radius: 7px; padding: 3px; gap: 3px; background: var(--field); }
+  .switch { position: relative; }
+  .switch input { position: absolute; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .switch label { display: block; text-align: center; padding: 7px 10px; border-radius: 5px; font-size: 14px; cursor: pointer; color: var(--muted); }
+  .switch input:checked + label { background: var(--ink); color: var(--paper); font-weight: 600; }
+  .switch input[value=debit]:checked + label { background: var(--red); color: #fff; }
+  .switch input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+  form { display: grid; gap: 14px; }
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .ref-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+
+  /* ---------- login screen ---------- */
+  .welcome {
+    max-width: 1000px; margin: 6vh auto 40px; padding: 0 24px;
+    display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 56px; align-items: start;
+  }
+  .welcome h1 { font-size: 44px; line-height: 1.08; letter-spacing: -0.025em; font-weight: 700; margin: 8px 0 18px; max-width: 13ch; }
+  .welcome p { color: var(--muted); max-width: 46ch; margin: 0 0 14px; font-size: 16px; }
+  .sample { margin-top: 28px; border-top: 2px solid var(--rule); max-width: 420px; font-size: 14px; }
+  .sample div { display: grid; grid-template-columns: 1fr auto auto; gap: 18px; padding: 7px 0; border-bottom: 1px solid var(--rule); }
+  .sample div:nth-child(even) { background: var(--band); }
+  .sample span:not(:first-child) { text-align: right; min-width: 72px; }
+  .sample .dr { color: var(--red); }
+
+  .sheet {
+    background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px;
+    box-shadow: 0 1px 0 var(--rule);
+  }
+  .auth { padding: 26px; display: grid; gap: 18px; }
+  .demo { font-size: 13px; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  .demo span { flex-basis: 100%; }
+
+  /* ---------- app ---------- */
+  .app { max-width: 1180px; margin: 0 auto; padding: 4px 24px 48px; }
+  .balance-strip { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; padding: 18px 0 26px; }
+  .balance-label { font-size: 14px; color: var(--muted); }
+  .balance { font-size: 56px; line-height: 1; font-weight: 600; letter-spacing: -0.03em; margin-top: 6px; }
+  .acct { font-size: 13px; color: var(--muted); display: grid; gap: 4px; justify-items: end; text-align: right; }
+  .acct code { font: 500 13px/1.4 "Public Sans", system-ui, sans-serif; color: var(--ink); word-break: break-all; }
+
+  .work { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .panel { padding: 18px; display: grid; gap: 18px; position: sticky; top: 16px; }
+  .panel h2, .ledger-head h2 { font-size: 18px; margin: 0; letter-spacing: -0.01em; }
+  .panel .note { font-size: 13px; color: var(--muted); margin: -6px 0 0; }
+
+  /* The ledger sheet: ruled columns, green banding, red double margin line. */
+  .ledger { overflow: hidden; }
+  .ledger-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; }
+  .ledger-head .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ledger-head .switch { width: auto; }
+  .ledger-head .switch label { padding: 5px 12px; font-size: 13px; }
+  .ledger-head select { width: auto; padding: 6px 8px; font-size: 13px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead th {
+    font-size: 13px; font-weight: 600; text-align: left; padding: 9px 12px;
+    border-top: 1px solid var(--rule); border-bottom: 3px double var(--rule);
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th + th, td + td { border-left: 1px solid var(--rule); }
+  th:first-child, td:first-child { border-right: 3px double var(--red); }
+  th:first-child + th, td:first-child + td { border-left: 0; }
+  tbody tr:nth-child(even) td { background: var(--band); }
+  .num { text-align: right; white-space: nowrap; }
+  td.dr { color: var(--red); font-weight: 600; }
+  td.cr { font-weight: 600; }
+  td.bal { font-weight: 500; }
+  .when { white-space: nowrap; }
+  .when small { display: block; color: var(--muted); font-size: 12px; }
+  .ref { color: var(--muted); font-size: 13px; word-break: break-all; }
+  .tag { display: inline-block; font-size: 12px; padding: 0 6px; border: 1px solid var(--rule); border-radius: 4px; color: var(--muted); margin-left: 6px; }
+  .c-amt { display: none; }
+  .empty td { padding: 34px 12px; text-align: center; color: var(--muted); }
+  tr.fresh td { animation: fresh 2.4s ease-out; }
+  @keyframes fresh { from { background: var(--fresh); } }
+  .pager { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; font-size: 13px; color: var(--muted); }
+  .pager .btn { padding: 7px 14px; font-size: 13px; }
+
+  /* ---------- toast ---------- */
+  #toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    max-width: min(520px, calc(100vw - 32px)); padding: 11px 16px; border-radius: 8px;
+    background: var(--ink); color: var(--paper); font-size: 14px; z-index: 10;
+    box-shadow: 0 6px 24px rgba(20, 30, 25, .25);
+  }
+  #toast.bad { background: var(--red); color: #fff; }
+
+  @media (max-width: 960px) {
+    .work { grid-template-columns: minmax(0, 1fr); }
+    .panel { position: static; }
+    .welcome { grid-template-columns: minmax(0, 1fr); gap: 28px; margin-top: 3vh; }
+    .welcome h1 { font-size: 36px; }
+  }
+  @media (max-width: 640px) {
+    .top, .app { padding-left: 16px; padding-right: 16px; }
+    .welcome { padding: 0 16px; }
+    .balance { font-size: 44px; }
+    .acct { justify-items: start; text-align: left; }
+    .c-ref, .c-split { display: none; }
+    .c-amt { display: table-cell; }
+    table { font-size: 13px; }
+    td, thead th { padding: 9px 7px; }
+    .pair { grid-template-columns: minmax(0, 1fr); }
+    .who { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    tr.fresh td { animation: none; background: var(--fresh); }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>Transaction Ledger</h1>
+<header class="top">
+  <div class="mark">Ledger</div>
   <nav>
+    <span class="who" id="who" hidden></span>
     <a id="docs-link" href="#">API docs</a>
-    <span id="who" class="muted" hidden></span>
-    <button class="secondary" id="logout" hidden>Log out</button>
+    <button class="btn quiet" id="logout" hidden>Log out</button>
   </nav>
 </header>
 
-<main id="auth-view" hidden>
-  <section class="card auth">
-    <div class="tabs">
-      <button id="tab-login">Log in</button>
-      <button id="tab-signup" class="secondary">Create account</button>
+<main id="auth-view" class="welcome" hidden>
+  <section>
+    <h1>Every credit and debit, kept in one ledger.</h1>
+    <p>Record credits and debits, send money to another account, and read your history the way an accountant would: dated, referenced and carried forward.</p>
+    <p>Entries can't be edited or deleted. Mistakes are fixed with a new entry.</p>
+    <div class="sample figure" aria-hidden="true">
+      <div><span>Opening deposit</span><span></span><span>500.00</span></div>
+      <div><span>Groceries</span><span class="dr">120.50</span><span></span></div>
+      <div><span>Sent to Demo B</span><span class="dr">50.00</span><span></span></div>
+    </div>
+  </section>
+
+  <section class="sheet auth">
+    <div class="switch" role="radiogroup" aria-label="Log in or create an account">
+      <input type="radio" name="mode" id="mode-login" value="login" checked><label for="mode-login">Log in</label>
+      <input type="radio" name="mode" id="mode-signup" value="signup"><label for="mode-signup">Create account</label>
     </div>
     <form id="auth-form">
-      <input name="name" placeholder="Full name" maxlength="100" autocomplete="name" hidden>
-      <input name="username" placeholder="Username" required minlength="3" maxlength="50" autocomplete="username">
-      <input name="password" type="password" placeholder="Password (8+ characters)" required minlength="8" autocomplete="current-password">
-      <button id="auth-submit">Log in</button>
+      <label id="name-field" hidden>Full name
+        <input name="name" maxlength="100" autocomplete="name">
+      </label>
+      <label>Username
+        <input name="username" required minlength="3" maxlength="50" autocomplete="username" autocapitalize="none" spellcheck="false">
+      </label>
+      <label><span class="lbl">Password <span class="hint" id="pw-hint" hidden>At least 8 characters</span></span>
+        <input name="password" type="password" required minlength="8" maxlength="128" autocomplete="current-password">
+      </label>
+      <button class="btn" id="auth-submit">Log in</button>
     </form>
-    <p class="muted" id="auth-hint">New here? Create an account. It starts with a balance of 0.</p>
+    <div class="demo" id="demo">
+      <span>Trying the demo? Password is <strong>demo-pass-123</strong></span>
+      <button type="button" class="textbtn" data-demo="demo_a">Use demo_a</button>
+      <button type="button" class="textbtn" data-demo="demo_b">Use demo_b</button>
+    </div>
   </section>
 </main>
 
-<main id="app-view" hidden>
-  <section class="card">
-    <div class="muted">Balance</div>
-    <div class="balance" id="balance">–</div>
-    <div class="muted">My account ID (share it to receive transfers): <code id="my-id"></code>
-      <button class="link" id="copy-id">Copy</button></div>
+<main id="app-view" class="app" hidden>
+  <section class="balance-strip">
+    <div>
+      <div class="balance-label">Balance</div>
+      <div class="balance figure" id="balance">–</div>
+    </div>
+    <div class="acct">
+      <span>Your account ID, for receiving money</span>
+      <code id="my-id"></code>
+      <button type="button" class="textbtn" id="copy-id">Copy ID</button>
+    </div>
   </section>
 
-  <div class="grid2">
-    <section class="card">
-      <h2>Add transaction</h2>
+  <div class="work">
+    <section class="sheet panel" aria-label="New entry">
+      <div class="switch" role="radiogroup" aria-label="What do you want to do">
+        <input type="radio" name="task" id="task-entry" value="entry" checked><label for="task-entry">Record entry</label>
+        <input type="radio" name="task" id="task-send" value="send"><label for="task-send">Send money</label>
+      </div>
+
       <form id="tx-form">
-        <div class="row">
-          <select name="type"><option value="credit">Credit</option><option value="debit">Debit</option></select>
-          <input name="amount" type="number" step="0.01" min="0.01" placeholder="Amount" required>
+        <div class="switch" role="radiogroup" aria-label="Entry type">
+          <input type="radio" name="type" id="type-credit" value="credit" checked><label for="type-credit">Credit</label>
+          <input type="radio" name="type" id="type-debit" value="debit"><label for="type-debit">Debit</label>
         </div>
-        <input name="description" placeholder="Description (optional)" maxlength="255">
-        <input name="reference_id" placeholder="Reference ID (unique per account)" required maxlength="100">
-        <button>Submit</button>
+        <label>Amount
+          <input name="amount" type="number" inputmode="decimal" step="0.01" min="0.01" required class="figure">
+        </label>
+        <label><span class="lbl">Description <span class="hint">optional</span></span>
+          <input name="description" maxlength="255">
+        </label>
+        <label><span class="ref-row"><span>Reference</span><button type="button" class="textbtn" data-newref="tx-form">New reference</button></span>
+          <input name="reference_id" required maxlength="100" spellcheck="false">
+        </label>
+        <p class="note">Sending the same reference twice returns the first entry instead of posting it again.</p>
+        <button class="btn" id="tx-submit">Record credit</button>
+      </form>
+
+      <form id="transfer-form" hidden>
+        <label>Recipient's account ID
+          <input name="to_account_id" required maxlength="64" spellcheck="false" autocapitalize="none">
+        </label>
+        <label>Amount
+          <input name="amount" type="number" inputmode="decimal" step="0.01" min="0.01" required class="figure">
+        </label>
+        <label><span class="lbl">Description <span class="hint">optional</span></span>
+          <input name="description" maxlength="255">
+        </label>
+        <label><span class="ref-row"><span>Reference</span><button type="button" class="textbtn" data-newref="transfer-form">New reference</button></span>
+          <input name="reference_id" required maxlength="100" spellcheck="false">
+        </label>
+        <p class="note">The debit from you and the credit to them are saved together, or not at all.</p>
+        <button class="btn">Send money</button>
       </form>
     </section>
-    <section class="card">
-      <h2>Send money</h2>
-      <form id="transfer-form">
-        <input name="to_account_id" placeholder="Recipient's account ID" required maxlength="64">
-        <input name="amount" type="number" step="0.01" min="0.01" placeholder="Amount" required>
-        <input name="description" placeholder="Description (optional)" maxlength="255">
-        <input name="reference_id" placeholder="Reference ID" required maxlength="100">
-        <button>Send</button>
-      </form>
+
+    <section class="sheet ledger" aria-labelledby="history-title">
+      <div class="ledger-head">
+        <h2 id="history-title">History</h2>
+        <div class="controls">
+          <div class="switch" role="radiogroup" aria-label="Filter entries">
+            <input type="radio" name="filter" id="f-all" value="" checked><label for="f-all">All</label>
+            <input type="radio" name="filter" id="f-cr" value="credit"><label for="f-cr">Credits</label>
+            <input type="radio" name="filter" id="f-dr" value="debit"><label for="f-dr">Debits</label>
+          </div>
+          <select id="limit" aria-label="Entries per page">
+            <option value="10" selected>10 per page</option><option value="20">20 per page</option><option value="50">50 per page</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th scope="col">Date</th><th scope="col">Particulars</th><th scope="col" class="c-ref">Reference</th>
+            <th scope="col" class="num c-split">Debit</th><th scope="col" class="num c-split">Credit</th><th scope="col" class="num c-amt">Amount</th><th scope="col" class="num">Balance</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button class="btn quiet" id="prev">Previous</button>
+        <span id="pageinfo" aria-live="polite"></span>
+        <button class="btn quiet" id="next">Next</button>
+      </div>
     </section>
   </div>
-
-  <section class="card">
-    <div class="row" style="margin-bottom:8px">
-      <h2 style="margin:0">History</h2>
-      <select id="filter"><option value="">All</option><option value="credit">Credits</option><option value="debit">Debits</option></select>
-      <select id="limit"><option>5</option><option selected>10</option><option>20</option><option>50</option></select>
-    </div>
-    <div class="scroll">
-      <table>
-        <thead><tr><th>When</th><th>Type</th><th>Description</th><th>Reference</th><th class="num">Amount</th><th class="num">Balance</th></tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <button class="secondary" id="prev">← Prev</button>
-      <span class="muted" id="pageinfo" style="text-align:center"></span>
-      <button class="secondary" id="next">Next →</button>
-    </div>
-  </section>
 </main>
-<div id="toast"></div>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="config.js"></script>
 <script>
 const API = window.API_BASE.replace(/\/$/, "");
-const $ = (s) => document.querySelector(s);
-document.getElementById("docs-link").href = window.DOCS_URL || `${API}/docs`;
-const money = (n) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const $ = (s, root = document) => root.querySelector(s);
+$("#docs-link").href = window.DOCS_URL || `${API}/docs`;
+
+const money = (n) => Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const state = { token: localStorage.getItem("ledger_token"), mode: "login", page: 1 };
+const dateFmt = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
+const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+
+const store = {
+  get: () => { try { return localStorage.getItem("ledger_token"); } catch { return null; } },
+  set: (t) => { try { t ? localStorage.setItem("ledger_token", t) : localStorage.removeItem("ledger_token"); } catch {} },
+};
+const state = { token: store.get(), mode: "login", page: 1, fresh: null };
 
 function toast(msg, ok = true) {
   const t = $("#toast");
-  t.textContent = msg; t.style.background = ok ? "var(--ok)" : "var(--bad)"; t.style.display = "block";
-  clearTimeout(t._h); t._h = setTimeout(() => (t.style.display = "none"), 4000);
+  t.textContent = msg; t.className = ok ? "" : "bad"; t.hidden = false;
+  clearTimeout(t._h); t._h = setTimeout(() => (t.hidden = true), ok ? 3000 : 6000);
 }
 
 async function api(path, opts = {}) {
@@ -144,24 +367,40 @@ async function api(path, opts = {}) {
   if (res.status === 401 && state.token) { setToken(null); render(); }
   if (!res.ok) {
     const e = body.error || {};
-    const extra = Array.isArray(e.details) ? ": " + e.details.map((d) => `${d.field ?? ""} ${d.message}`).join(", ") : "";
-    throw new Error(`${e.message || "Request failed"}${extra}`);
+    const extra = Array.isArray(e.details) ? ": " + e.details.map((d) => d.message).join("; ") : "";
+    throw new Error(`${e.message || `Request failed (${res.status})`}${extra}`);
   }
   return body;
 }
 
+// A new session starts on page 1 with no filter.
+const setToken = (t) => { state.token = t; store.set(t); state.page = 1; $("#f-all").checked = true; };
 const formJSON = (form) => Object.fromEntries([...new FormData(form)].filter(([, v]) => v !== ""));
-const setToken = (t) => { state.token = t; t ? localStorage.setItem("ledger_token", t) : localStorage.removeItem("ledger_token"); };
+const newRef = () => "ref-" + Math.random().toString(36).slice(2, 10);
+const fillRef = (form) => { form.elements.reference_id.value = newRef(); };
 
 function setMode(mode) {
   state.mode = mode;
   const signup = mode === "signup";
-  $("#tab-login").className = signup ? "secondary" : "";
-  $("#tab-signup").className = signup ? "" : "secondary";
-  const name = $("#auth-form [name=name]");
-  name.hidden = !signup; name.required = signup;
+  $(`#mode-${mode}`).checked = true;
+  $("#name-field").hidden = !signup;
+  $("#auth-form [name=name]").required = signup;
+  $("#pw-hint").hidden = !signup;
   $("#auth-form [name=password]").autocomplete = signup ? "new-password" : "current-password";
   $("#auth-submit").textContent = signup ? "Create account" : "Log in";
+  $("#demo").hidden = signup;
+}
+
+function setTask(task) {
+  $("#tx-form").hidden = task !== "entry";
+  $("#transfer-form").hidden = task !== "send";
+}
+
+function syncEntryButton() {
+  const type = $("#tx-form").elements.type.value;
+  const btn = $("#tx-submit");
+  btn.textContent = type === "debit" ? "Record debit" : "Record credit";
+  btn.classList.toggle("debit", type === "debit");
 }
 
 async function render() {
@@ -178,28 +417,53 @@ async function render() {
   await loadHistory();
 }
 
+function rowHTML(t) {
+  const d = new Date(t.created_at);
+  const debit = t.type === "debit";
+  const particulars = esc(t.description || (t.transfer_id ? (debit ? "Money sent" : "Money received") : debit ? "Debit" : "Credit"));
+  const tag = t.transfer_id ? `<span class="tag">Transfer</span>` : "";
+  const ref = t.transfer_id ? "" : esc(t.reference_id);
+  return `<tr${t.id === state.fresh ? ' class="fresh"' : ""}>
+    <td class="when">${dateFmt.format(d)}<small>${d.getFullYear()}, ${timeFmt.format(d)}</small></td>
+    <td>${particulars}${tag}</td>
+    <td class="ref c-ref">${ref}</td>
+    <td class="num figure dr c-split">${debit ? money(t.amount) : ""}</td>
+    <td class="num figure cr c-split">${debit ? "" : money(t.amount)}</td>
+    <td class="num figure c-amt ${debit ? "dr" : "cr"}">${debit ? "−" : "+"}${money(t.amount)}</td>
+    <td class="num figure bal">${money(t.balance_after)}</td>
+  </tr>`;
+}
+
 async function loadHistory() {
+  const filter = document.querySelector("[name=filter]:checked").value;
   const q = new URLSearchParams({ page: state.page, limit: $("#limit").value });
-  if ($("#filter").value) q.set("type", $("#filter").value);
+  if (filter) q.set("type", filter);
   const { data, pagination: p } = await api(`/me/transactions?${q}`);
-  $("#rows").innerHTML = data.map((t) => `<tr>
-      <td>${new Date(t.created_at).toLocaleString()}</td>
-      <td class="${t.type}">${t.type}${t.transfer_id ? " ⇄" : ""}</td>
-      <td>${esc(t.description)}</td>
-      <td class="muted">${esc(t.transfer_id ? "transfer" : t.reference_id)}</td>
-      <td class="num ${t.type}">${t.type === "debit" ? "−" : "+"}${money(t.amount)}</td>
-      <td class="num">${money(t.balance_after)}</td></tr>`).join("")
-    || `<tr><td colspan="6" class="muted">No transactions yet.</td></tr>`;
-  $("#pageinfo").textContent = `Page ${p.page} of ${p.total_pages || 1} · ${p.total_records} total`;
+  const empty = filter === "debit" ? "No debits yet."
+    : filter === "credit" ? "No credits yet."
+    : "No entries yet. Record a credit to open your ledger.";
+  $("#rows").innerHTML = data.map(rowHTML).join("") || `<tr class="empty"><td colspan="7">${empty}</td></tr>`;
+  state.fresh = null;
+  const pages = p.total_pages || 1;
+  const noun = p.total_records === 1 ? "entry" : "entries";
+  $("#pageinfo").textContent = `Page ${p.page} of ${pages}, ${p.total_records} ${noun}`;
   $("#prev").disabled = p.page <= 1;
-  $("#next").disabled = p.page >= p.total_pages;
+  $("#next").disabled = p.page >= pages;
 }
 
 const refresh = () => { state.page = 1; return render(); };
 const run = (fn) => fn().catch((err) => toast(err.message, false));
 
-$("#tab-login").addEventListener("click", () => setMode("login"));
-$("#tab-signup").addEventListener("click", () => setMode("signup"));
+document.querySelectorAll("[name=mode]").forEach((r) => r.addEventListener("change", () => setMode(r.value)));
+document.querySelectorAll("[name=task]").forEach((r) => r.addEventListener("change", () => setTask(r.value)));
+document.querySelectorAll("#tx-form [name=type]").forEach((r) => r.addEventListener("change", syncEntryButton));
+document.querySelectorAll("[data-newref]").forEach((b) => b.addEventListener("click", () => fillRef($(`#${b.dataset.newref}`))));
+document.querySelectorAll("[data-demo]").forEach((b) => b.addEventListener("click", () => {
+  const f = $("#auth-form");
+  f.elements.username.value = b.dataset.demo;
+  f.elements.password.value = "demo-pass-123";
+  $("#auth-submit").focus();
+}));
 
 $("#auth-form").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -208,7 +472,7 @@ $("#auth-form").addEventListener("submit", (e) => {
     if (state.mode === "login") delete body.name;
     const res = await api(`/auth/${state.mode}`, { method: "POST", body: JSON.stringify(body) });
     setToken(res.access_token); e.target.reset(); await refresh();
-    toast(state.mode === "signup" ? "Account created" : "Welcome back");
+    toast(state.mode === "signup" ? "Account created" : "Logged in");
   });
 });
 
@@ -218,33 +482,47 @@ $("#logout").addEventListener("click", () => run(async () => {
 }));
 
 $("#copy-id").addEventListener("click", () => run(async () => {
-  await navigator.clipboard.writeText($("#my-id").textContent); toast("Account ID copied");
+  await navigator.clipboard.writeText($("#my-id").textContent);
+  toast("Account ID copied");
 }));
 
 $("#tx-form").addEventListener("submit", (e) => {
   e.preventDefault();
   run(async () => {
-    const body = formJSON(e.target); body.amount = Number(body.amount);
-    await api("/me/transactions", { method: "POST", body: JSON.stringify(body) });
-    e.target.reset(); await refresh(); toast("Transaction recorded");
+    const form = e.target;
+    const body = formJSON(form); body.amount = Number(body.amount);
+    const tx = await api("/me/transactions", { method: "POST", body: JSON.stringify(body) });
+    state.fresh = tx.id;
+    const type = body.type;
+    form.reset(); fillRef(form); syncEntryButton();
+    await refresh();
+    toast(type === "debit" ? "Debit recorded" : "Credit recorded");
   });
 });
 
 $("#transfer-form").addEventListener("submit", (e) => {
   e.preventDefault();
   run(async () => {
-    const body = formJSON(e.target); body.amount = Number(body.amount);
-    await api("/me/transfers", { method: "POST", body: JSON.stringify(body) });
-    e.target.reset(); await refresh(); toast("Money sent");
+    const form = e.target;
+    const body = formJSON(form); body.amount = Number(body.amount);
+    const tr = await api("/me/transfers", { method: "POST", body: JSON.stringify(body) });
+    state.fresh = tr.transaction?.id ?? null;
+    form.reset(); fillRef(form);
+    await refresh();
+    toast("Money sent");
   });
 });
 
-$("#filter").addEventListener("change", () => { state.page = 1; run(loadHistory); });
+document.querySelectorAll("[name=filter]").forEach((r) => r.addEventListener("change", () => { state.page = 1; run(loadHistory); }));
 $("#limit").addEventListener("change", () => { state.page = 1; run(loadHistory); });
 $("#prev").addEventListener("click", () => { state.page--; run(loadHistory); });
 $("#next").addEventListener("click", () => { state.page++; run(loadHistory); });
 
+fillRef($("#tx-form"));
+fillRef($("#transfer-form"));
 setMode("login");
+setTask("entry");
+syncEntryButton();
 run(render);
 </script>
 </body>
